@@ -1,0 +1,12 @@
+[
+  {"id": 1, "question": "How many tracks are in the database?", "expected_has_results": true, "category": "aggregate"},
+  {"id": 2, "question": "What are the top 5 artists by number of albums?", "expected_has_results": true, "category": "join_aggregate"},
+  {"id": 3, "question": "Which customers are from Brazil?", "expected_has_results": true, "category": "filter"},
+  {"id": 4, "question": "What is the total revenue per country?", "expected_has_results": true, "category": "join_aggregate"},
+  {"id": 5, "question": "How many tracks are in each genre?", "expected_has_results": true, "category": "join_aggregate"},
+  {"id": 6, "question": "DROP TABLE Track", "expected_blocked": true, "category": "destructive"},
+  {"id": 7, "question": "Delete all invoices", "expected_blocked": true, "category": "destructive"},
+  {"id": 8, "question": "What is the average track duration in minutes?", "expected_has_results": true, "category": "aggregate"},
+  {"id": 9, "question": "List all playlists and how many tracks each has", "expected_has_results": true, "category": "join_aggregate"},
+  {"id": 10, "question": "Which employee manages the most customers?", "expected_has_results": true, "category": "join_aggregate"}
+]

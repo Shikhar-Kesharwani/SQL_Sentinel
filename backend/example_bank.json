@@ -1,0 +1,42 @@
+[
+  {
+    "question": "How many tracks are in the database?",
+    "sql": "SELECT COUNT(*) as total_tracks FROM Track;"
+  },
+  {
+    "question": "What are the top 5 artists by number of albums?",
+    "sql": "SELECT ar.Name, COUNT(al.AlbumId) as album_count FROM Artist ar JOIN Album al ON ar.ArtistId = al.ArtistId GROUP BY ar.ArtistId, ar.Name ORDER BY album_count DESC LIMIT 5;"
+  },
+  {
+    "question": "What is the total revenue per country?",
+    "sql": "SELECT BillingCountry, ROUND(SUM(Total), 2) as total_revenue FROM Invoice GROUP BY BillingCountry ORDER BY total_revenue DESC;"
+  },
+  {
+    "question": "Which customers have spent more than $40?",
+    "sql": "SELECT c.FirstName || ' ' || c.LastName as customer_name, SUM(i.Total) as total_spent FROM Customer c JOIN Invoice i ON c.CustomerId = i.CustomerId GROUP BY c.CustomerId HAVING total_spent > 40 ORDER BY total_spent DESC;"
+  },
+  {
+    "question": "What genres have the most tracks?",
+    "sql": "SELECT g.Name as genre, COUNT(t.TrackId) as track_count FROM Genre g JOIN Track t ON g.GenreId = t.GenreId GROUP BY g.GenreId, g.Name ORDER BY track_count DESC LIMIT 10;"
+  },
+  {
+    "question": "Who are the top 3 selling artists?",
+    "sql": "SELECT ar.Name, SUM(il.UnitPrice * il.Quantity) as total_sales FROM Artist ar JOIN Album al ON ar.ArtistId = al.ArtistId JOIN Track t ON al.AlbumId = t.AlbumId JOIN InvoiceLine il ON t.TrackId = il.TrackId GROUP BY ar.Name ORDER BY total_sales DESC LIMIT 3;"
+  },
+  {
+    "question": "List all tracks longer than 5 minutes.",
+    "sql": "SELECT Name, Milliseconds / 60000.0 as minutes FROM Track WHERE Milliseconds > 300000 ORDER BY minutes DESC;"
+  },
+  {
+    "question": "Which employee supports the most customers?",
+    "sql": "SELECT e.FirstName, e.LastName, COUNT(c.CustomerId) as customer_count FROM Employee e JOIN Customer c ON e.EmployeeId = c.SupportRepId GROUP BY e.EmployeeId ORDER BY customer_count DESC LIMIT 1;"
+  },
+  {
+    "question": "What is the average track duration in each genre?",
+    "sql": "SELECT g.Name as genre, AVG(t.Milliseconds) / 60000.0 as avg_minutes FROM Genre g JOIN Track t ON g.GenreId = t.GenreId GROUP BY g.Name ORDER BY avg_minutes DESC;"
+  },
+  {
+    "question": "Find all invoices from 2011.",
+    "sql": "SELECT * FROM Invoice WHERE strftime('%Y', InvoiceDate) = '2011';"
+  }
+]
