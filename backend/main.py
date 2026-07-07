@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -13,6 +13,7 @@ from schema_extractor import get_schema, schema_to_prompt_string
 from sql_generator import generate_sql
 from guardrails import validate_sql, execute_sql_safely, profile_query
 from hallucination_detector import detect_hallucination
+from langgraph_agent import run_langgraph_agent
 import vector_store
 import db_config
 import schema_extractor
@@ -77,6 +78,50 @@ init_history_db()
 
 class QueryRequest(BaseModel):
     question: str
+    previous_sql: Optional[str] = None
+
+
+@app.post("/v1/query_graph")
+async def query_db_graph(req: QueryRequest):
+    """Deep Think Mode (LangGraph) Text-to-SQL pipeline."""
+    try:
+        query_id = str(uuid.uuid4())[:8]
+        # Run the full agent graph
+        result_payload = run_langgraph_agent(req.question, previous_sql=req.previous_sql)
+
+        # Detect hallucinations on the final SQL if it exists
+        hallucination_check = {"is_hallucination": False, "reason": ""}
+        if result_payload["sql"]:
+            hallucination_check = detect_hallucination(req.question, result_payload["sql"], 0.9, result_payload.get("result"))
+            if hallucination_check["is_hallucination"]:
+                result_payload["explanation"] = "WARNING: Possible hallucination detected. " + hallucination_check["reason"] + "\n\n" + result_payload.get("explanation", "")
+
+        # Log to DB
+        record = {
+            "id": query_id,
+            "question": req.question,
+            "sql": result_payload["sql"],
+            "explanation": result_payload.get("explanation", ""),
+            "confidence": 0.9,
+            "row_count": len(result_payload.get("result", {}).get("rows", [])),
+            "is_hallucination": hallucination_check["is_hallucination"],
+            "blocked": False,
+            "block_reason": "",
+            "created_at": datetime.utcnow().isoformat()
+        }
+        save_to_history(record)
+
+        return {
+            "id": query_id,
+            "status": "success",
+            "sql": result_payload["sql"],
+            "chart_config": result_payload.get("chart_config", {"type": "none"}),
+            "result": result_payload.get("result", {})
+        }
+    
+    except Exception as e:
+        print(f"Error in /v1/query_graph: {str(e)}")
+        return {"error": f"LangGraph Engine Error: {str(e)}"}
 
 
 @app.post("/v1/query")
@@ -101,7 +146,7 @@ async def run_query(request: QueryRequest):
     while attempts <= max_retries:
         try:
             if attempts == 0:
-                generation = generate_sql(question, SCHEMA)
+                generation = generate_sql(question, SCHEMA, previous_sql=request.previous_sql)
             else:
                 generation = generate_sql(question, SCHEMA, previous_sql=sql, error_message=execution["error"])
         except Exception as e:
@@ -146,7 +191,7 @@ async def run_query(request: QueryRequest):
 
     # Step 4: Hallucination detection
     hallucination = detect_hallucination(
-        question=question,
+        original_question=question,
         sql=sql,
         llm_confidence=llm_confidence,
         execution_result=execution

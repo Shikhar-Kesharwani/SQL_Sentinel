@@ -102,23 +102,29 @@ def compute_confidence(
     return round(min(max(score, 0.0), 1.0), 3)
 
 
-def detect_hallucination(
-    question: str,
-    sql: str,
-    llm_confidence: float,
-    execution_result: dict
-) -> dict:
-    """Full hallucination detection pipeline."""
+def detect_hallucination(original_question: str, sql: str, llm_confidence: float, execution_result: dict = None) -> dict:
+    """
+    Main entry point for hallucination detection.
+    """
+    if not sql or not sql.strip():
+        return {
+            "is_hallucination": False,
+            "reason": "No SQL generated.",
+            "final_confidence": 0.0,
+            "checks": {"syntax": False, "execution": False, "semantic": False}
+        }
+    
+    execution_result = execution_result or {}
 
     # Step 1: Back-translation
     back_translated = back_translate_sql(sql)
-    similarity = semantic_similarity(question, back_translated)
+    similarity = semantic_similarity(original_question, back_translated)
 
     # Step 2: Sanity checks on results
     sanity = sanity_check_results(
         execution_result.get("columns", []),
         execution_result.get("rows", []),
-        question
+        original_question
     )
 
     # Step 3: Composite confidence

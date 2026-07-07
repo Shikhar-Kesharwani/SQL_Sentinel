@@ -1,98 +1,128 @@
 <div align="center">
-  <img src="frontend/public/logo.png" alt="SQL Sentinel Logo" width="120" />
-  <h1>🛡️ SQL Sentinel</h1>
-  <p><strong>The Ultimate AI-Powered SQL Dashboard & RAG Assistant</strong></p>
+  <img src="https://img.icons8.com/color/120/000000/shield.png" alt="SQL Sentinel Logo">
+  
+  # SQL Sentinel 🛡️
+  
+  **Enterprise-Grade, Guardrail-Protected, Multi-Agent Text-to-SQL Engine.**
 
-  <p>
-    <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
-    <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
-    <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
-    <img src="https://img.shields.io/badge/Gemini-8E75B2?style=for-the-badge&logo=googlebard&logoColor=white" alt="Gemini AI" />
-    <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
-  </p>
+  [![React](https://img.shields.io/badge/React-18.0-61DAFB.svg?style=for-the-badge&logo=react)](https://reactjs.org/)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-0.100.0-009688.svg?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+  [![LangGraph](https://img.shields.io/badge/LangGraph-Multi--Agent-FF9900.svg?style=for-the-badge)](https://python.langchain.com/docs/langgraph)
+  [![Gemini](https://img.shields.io/badge/Gemini-Pro-4285F4.svg?style=for-the-badge&logo=google)](https://ai.google.dev/)
+  
+  *Transform natural language into secure, validated SQL queries and visualize the results instantly.*
 </div>
 
 ---
 
-## 🚀 Overview
+## 🌟 Overview
 
-**SQL Sentinel** is an enterprise-grade, 100% open-source intelligent database assistant. It allows you to chat with your database in plain English, automatically generates robust SQL queries via LLMs (Google Gemini), securely executes them, and dynamically renders stunning visualizations.
+**SQL Sentinel** is not just another text-to-SQL wrapper. It is a highly resilient, enterprise-ready platform designed to safely query databases using natural language. It features a dual-engine architecture, built-in hallucination detection, dynamic chart rendering, and strict execution guardrails that ensure no rogue queries ever mutate your database.
 
-Originally inspired by **Vanna AI**, SQL Sentinel achieves complete feature parity while delivering a vastly superior, modern UI/UX featuring glassmorphism, micro-animations, and an ultra-premium React frontend.
+Whether you need a blazing-fast answer or a deep, multi-step self-correcting analysis, SQL Sentinel has you covered.
+
+## ✨ Core Features
+
+### 🚀 Dual-Engine Architecture
+* **⚡ Fast Mode (Single-Prompt):** Lightning-fast query generation for everyday data exploration. Merges your database schema and rules into a highly optimized prompt to return data and charts in 1-3 seconds.
+* **🧠 Deep Think Mode (LangGraph):** A multi-agent StateGraph that breaks complex queries down into explicit steps. It filters tables, extracts precise DDL, generates SQL, and *self-corrects*. If the database throws an error, the agent routes back, analyzes the exact error, and rewrites the query—healing its own mistakes!
+
+### 🛡️ Ironclad Guardrails
+* **Safe Execution Environment:** Every query is wrapped in a `BEGIN` ... `ROLLBACK` transaction. Even if the LLM generates a `DROP TABLE` or `DELETE` command, your database remains completely untouched.
+* **Syntax & Safety Validation:** Python-level regex guardrails aggressively block destructive keywords, prevent infinite cross-joins, and enforce `LIMIT` clauses to protect system memory.
+
+### 🕵️‍♂️ Hallucination Detection & Confidence Scoring
+Never blindly trust the LLM. SQL Sentinel features an advanced verification pipeline:
+* **Back-Translation:** Translates the generated SQL *back* into English and compares it against the user's original question using Sentence Transformers.
+* **Sanity Checking:** Analyzes the raw result rows (e.g., preventing empty datasets or unexpected columns) to generate a final composite confidence score (0.0 to 1.0).
+
+### 📊 Dynamic Visualization
+The AI doesn't just write SQL—it also recommends how to visualize it. The frontend dynamically renders **Bar Charts**, **Line Graphs**, and **Pie Charts** based on a strict `chart_config` generated alongside your data, complete with CSV and PNG export capabilities.
+
+### 🧠 RAG Context Management
+Teach the AI your business logic. A built-in UI allows you to add custom SQL examples and domain-specific documentation to a Vector Store, creating a bespoke knowledge base that the LLM references before every query.
 
 ---
 
-## ✨ Features
+## 🛠️ Technology Stack
 
-- 🧠 **Retrieval-Augmented Generation (RAG):** Train the AI context manager on custom SQL examples and database documentation to drastically improve query accuracy over time.
-- 📊 **Dynamic Visualizations:** Instantly transforms query results into beautiful, interactive Bar, Line, and Pie charts using Recharts.
-- 🔌 **Dynamic Database Connection:** Connect to any local SQLite database on the fly—the system instantly extracts and learns the schema.
-- 💾 **Saved Dashboards:** Pin your favorite queries and charts to a persistent dashboard for quick reporting.
-- ✏️ **Edit & Run Custom SQL:** Full power-user control. If the AI hallucinates, simply drop into the live code editor, tweak the SQL, and re-run the query in the same context.
-- 📥 **Export Everything:** Instantly download raw data as CSV or export your high-res charts as PNG images.
-- 🛡️ **Safety Guardrails:** Built-in safeguards prevent dangerous SQL execution (e.g., `DROP`, `DELETE`) before they ever touch your database.
+**Frontend:**
+* React.js
+* Recharts (Dynamic Visualization)
+* Axios (API Communication)
+* CSS3 (Glassmorphism & Modern UI)
+
+**Backend:**
+* Python 3.10+
+* FastAPI (High-performance API)
+* LangGraph & LangChain (Agentic Workflows)
+* Google Gemini (LLM Generation)
+* HuggingFace `all-MiniLM-L6-v2` (Vector Embeddings)
+* SQLite (Local Vector Store & Demo Database)
 
 ---
 
-## 🏗️ Architecture
+## 🚦 Getting Started
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/AyushGU12/SQL_Sentinel.git
+cd SQL_Sentinel
+```
+
+### 2. Backend Setup
+```bash
+cd backend
+
+# Create a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create your environment variables
+echo "GEMINI_API_KEY=your_api_key_here" > .env
+
+# Start the FastAPI server
+python -m uvicorn main:app --port 8080
+```
+
+### 3. Frontend Setup
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm start
+```
+The application will launch at [http://localhost:3000](http://localhost:3000).
+
+---
+
+## 📖 Architecture Diagram
 
 ```mermaid
 graph TD
-    A[User (React Frontend)] -->|Plain English Question| B(FastAPI Backend)
-    B -->|Fetch Relevant Context| C[(ChromaDB Vector Store)]
-    C -.->|Returns Training Examples| B
-    B -->|Prompt (Schema + Context + Question)| D[Gemini LLM]
-    D -.->|Generated SQL & Chart Config| B
-    B -->|Execute Query| E[(SQLite Database)]
-    E -.->|Raw Data| B
-    B -->|Returns JSON & Config| A
-    A -->|Render| F[Data Table & Recharts UI]
+    A[User Question] --> B{Choose Mode}
+    B -->|Fast Mode| C[Single LLM Call]
+    B -->|Deep Think| D[LangGraph Multi-Agent]
+    
+    C --> E[Validate SQL]
+    D --> E
+    
+    E -->|Fails| F[Retry / Self-Correct]
+    F --> D
+    
+    E -->|Passes| G[Execute Safely in Transaction]
+    G --> H[Hallucination Detector]
+    H --> I[React Frontend: Tables & Charts]
 ```
-
----
-
-## 🛠️ Quick Start
-
-### Prerequisites
-- Python 3.10+
-- Node.js (v16+)
-- Gemini API Key
-
-### 1. Backend Setup
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Create a .env file and add your API key
-echo "GEMINI_API_KEY=your_key_here" > .env
-
-# Run the backend
-python -m uvicorn main:app --reload --port 8080
-```
-
-### 2. Frontend Setup
-```bash
-cd frontend
-npm install
-
-# Start the React development server
-npm start
-```
-*The app will automatically launch at `http://localhost:3000`*
-
----
-
-## 🎨 UI/UX Showcase
-
-Our interface was completely redesigned from the ground up to feel like a premium Silicon Valley product. 
-- **Glassmorphism:** Frosted glass panels and stunning gradients.
-- **Micro-interactions:** Everything from the logo to the chart containers physically lifts off the screen when hovered, guided by smooth cubic-bezier transitions.
-- **Smart Formatting:** Massive pie charts are automatically grouped, and decimals are cleanly truncated to maintain visual harmony.
 
 ---
 
 <div align="center">
-  <i>Built with ❤️ for modern data analysts.</i>
+  Built with ❤️ for modern data teams.
 </div>

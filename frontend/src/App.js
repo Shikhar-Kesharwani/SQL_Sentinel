@@ -396,6 +396,7 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [engine, setEngine] = useState("fast"); 
   const [showContextManager, setShowContextManager] = useState(false);
   const [showDbConnection, setShowDbConnection] = useState(false);
   const [showDashboards, setShowDashboards] = useState(false);
@@ -419,14 +420,15 @@ export default function App() {
       }
     }
 
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
-    
+
     try {
-      const res = await axios.post(`${API}/v1/query`, { 
-        question: userMsg.content,
-        previous_sql: previousSql 
+      const endpoint = engine === "fast" ? `${API}/v1/query` : `${API}/v1/query_graph`;
+      const res = await axios.post(endpoint, { 
+        question: input,
+        previous_sql: previousSql
       });
       setMessages(prev => [...prev, { role: "ai", result: res.data }]);
     } catch (e) {
@@ -608,6 +610,12 @@ export default function App() {
 
         {/* Input */}
         <div className="input-container">
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#f8fafc", padding: "4px", borderRadius: 100, border: "1px solid #e2e8f0" }}>
+              <button onClick={() => setEngine("fast")} style={{ padding: "4px 16px", fontSize: 13, borderRadius: 100, border: "none", background: engine === "fast" ? "#fff" : "transparent", boxShadow: engine === "fast" ? "0 1px 4px rgba(0,0,0,0.1)" : "none", color: engine === "fast" ? "#10b981" : "#94a3b8", cursor: "pointer", fontWeight: 600, transition: "all 0.2s" }}>⚡ Fast</button>
+              <button onClick={() => setEngine("deep_think")} style={{ padding: "4px 16px", fontSize: 13, borderRadius: 100, border: "none", background: engine === "deep_think" ? "#fff" : "transparent", boxShadow: engine === "deep_think" ? "0 1px 4px rgba(0,0,0,0.1)" : "none", color: engine === "deep_think" ? "#8b5cf6" : "#94a3b8", cursor: "pointer", fontWeight: 600, transition: "all 0.2s" }}>🧠 Deep Think</button>
+            </div>
+          </div>
           <div className="input-box">
             <input 
               className="chat-input"
