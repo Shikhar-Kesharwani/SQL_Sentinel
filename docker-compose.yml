@@ -1,20 +1,24 @@
-version: "3.8"
+version: '3.8'
 
 services:
   backend:
     build: ./backend
-    ports:
-      - "8000:8000"
+    container_name: sql_sentinel_backend
+    restart: always
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-your_key_here}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    ports:
+      - "8080:8080"
     volumes:
-      - ./backend/history.db:/app/history.db
+      - ./backend/vector_db:/app/vector_db # Persist RAG knowledge base
+      - ./backend/chinook.db:/app/chinook.db # Persist SQLite DB
+      - ./backend/history.db:/app/history.db # Persist query history
 
   frontend:
     build: ./frontend
+    container_name: sql_sentinel_frontend
+    restart: always
     ports:
-      - "3000:3000"
-    environment:
-      - WDS_SOCKET_PORT=0
+      - "80:80"
     depends_on:
       - backend
