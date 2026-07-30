@@ -19,8 +19,8 @@ COPY . .
 # Run schema extractor first to make sure it's ready and schema.json is built
 RUN python schema_extractor.py
 
-# Expose the FastAPI port
+# Expose a default port (Render will override this with $PORT)
 EXPOSE 8080
 
-# Run Uvicorn in production mode (no reload)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Run Uvicorn and bind to $PORT (fallback to 8080 if not set)
+CMD sh -c "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"
