@@ -3,7 +3,12 @@ import sqlite3
 import logging
 from pathlib import Path
 from datetime import datetime
-from db_config import get_db_path
+from db_config import get_db_path, is_postgres, get_database_url
+
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
 
 LOG_PATH = Path(__file__).parent / "blocked_queries.log"
 
@@ -81,52 +86,69 @@ def check_has_limit(sql: str) -> None:
 
 
 def check_row_count_via_explain(sql: str) -> None:
-    """Use EXPLAIN QUERY PLAN to estimate scan size."""
+    """Use EXPLAIN to estimate scan size."""
     try:
-        conn = sqlite3.connect(get_db_path())
-        cursor = conn.cursor()
-        cursor.execute(f"EXPLAIN QUERY PLAN {sql}")
-        plan = cursor.fetchall()
-        conn.close()
-
-        for row in plan:
-            row_str = str(row).upper()
-            if "SCAN" in row_str and "LIMIT" not in sql.upper():
-                # Full table scan without limit — potentially dangerous
-                pass  # Already caught by check_has_limit above
+        if is_postgres() and psycopg2:
+            conn = psycopg2.connect(get_database_url())
+            cursor = conn.cursor()
+            cursor.execute(f"EXPLAIN {sql}")
+            plan = cursor.fetchall()
+            conn.close()
+            # Basic check for Postgres Seq Scan
+            for row in plan:
+                row_str = str(row).upper()
+                if "SEQ SCAN" in row_str and "LIMIT" not in sql.upper():
+                    pass # Already caught by check_has_limit
+        else:
+            conn = sqlite3.connect(get_db_path())
+            cursor = conn.cursor()
+            cursor.execute(f"EXPLAIN QUERY PLAN {sql}")
+            plan = cursor.fetchall()
+            conn.close()
+            for row in plan:
+                row_str = str(row).upper()
+                if "SCAN" in row_str and "LIMIT" not in sql.upper():
+                    pass  # Already caught by check_has_limit above
     except Exception:
         pass  # EXPLAIN failed — let execution layer catch it
 
 
 def profile_query(sql: str) -> dict:
-    """Use EXPLAIN QUERY PLAN to detect potential bottlenecks."""
+    """Use EXPLAIN to detect potential bottlenecks."""
     profile = {
         "is_optimized": True,
         "warnings": [],
         "plan": []
     }
     try:
-        conn = sqlite3.connect(get_db_path())
-        cursor = conn.cursor()
-        cursor.execute(f"EXPLAIN QUERY PLAN {sql}")
-        plan = cursor.fetchall()
-        conn.close()
-
-        for row in plan:
-            # row format in SQLite EXPLAIN QUERY PLAN: (id, parent, notused, detail)
-            detail = str(row[3]).upper() if len(row) > 3 else str(row).upper()
-            profile["plan"].append(detail)
-            
-            if "SCAN TABLE" in detail or ("SCAN" in detail and "SEARCH" not in detail):
-                # Check if it's scanning a small table, which is fine.
-                # Since we don't have row counts here, we just warn generally if there's a SCAN without LIMIT
-                if "LIMIT" not in sql.upper():
+        if is_postgres() and psycopg2:
+            conn = psycopg2.connect(get_database_url())
+            cursor = conn.cursor()
+            cursor.execute(f"EXPLAIN {sql}")
+            plan = cursor.fetchall()
+            conn.close()
+            for row in plan:
+                detail = str(row[0]).upper()
+                profile["plan"].append(detail)
+                if "SEQ SCAN" in detail and "LIMIT" not in sql.upper():
                     profile["is_optimized"] = False
                     profile["warnings"].append(f"Full table scan detected: {detail}")
-                    
-            if "TEMP B-TREE" in detail:
-                profile["is_optimized"] = False
-                profile["warnings"].append("Uses temporary B-tree for sorting/grouping (can be slow on large tables).")
+        else:
+            conn = sqlite3.connect(get_db_path())
+            cursor = conn.cursor()
+            cursor.execute(f"EXPLAIN QUERY PLAN {sql}")
+            plan = cursor.fetchall()
+            conn.close()
+            for row in plan:
+                detail = str(row[3]).upper() if len(row) > 3 else str(row).upper()
+                profile["plan"].append(detail)
+                if "SCAN TABLE" in detail or ("SCAN" in detail and "SEARCH" not in detail):
+                    if "LIMIT" not in sql.upper():
+                        profile["is_optimized"] = False
+                        profile["warnings"].append(f"Full table scan detected: {detail}")
+                if "TEMP B-TREE" in detail:
+                    profile["is_optimized"] = False
+                    profile["warnings"].append("Uses temporary B-tree for sorting/grouping.")
 
     except Exception as e:
         profile["warnings"].append(f"Could not profile query: {str(e)}")
@@ -163,9 +185,12 @@ def validate_sql(sql: str, question: str) -> dict:
 def execute_sql_safely(sql: str) -> dict:
     """Execute SQL in a read-only context with auto-rollback."""
     try:
-        conn = sqlite3.connect(get_db_path())
-        conn.execute("BEGIN")  # Start transaction
-
+        if is_postgres() and psycopg2:
+            conn = psycopg2.connect(get_database_url())
+        else:
+            conn = sqlite3.connect(get_db_path())
+            conn.execute("BEGIN")  # Start transaction for SQLite
+        
         cursor = conn.cursor()
         cursor.execute(sql)
         rows = cursor.fetchmany(500)  # Hard cap: never return more than 500 rows

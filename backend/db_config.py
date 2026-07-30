@@ -1,8 +1,18 @@
 import json
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 CONFIG_PATH = Path(__file__).parent / "db_config.json"
 DEFAULT_DB = str(Path(__file__).parent / "chinook.sqlite")
+
+def is_postgres() -> bool:
+    return bool(os.getenv("DATABASE_URL"))
+
+def get_database_url() -> str:
+    return os.getenv("DATABASE_URL")
 
 def get_db_path() -> str:
     if not CONFIG_PATH.exists():

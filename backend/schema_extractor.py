@@ -1,33 +1,81 @@
 import sqlite3
 import json
 from pathlib import Path
-from db_config import get_db_path
+from db_config import get_db_path, is_postgres, get_database_url
 
-def get_schema() -> dict:
-    """Extract full schema from SQLite database."""
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
+
+def get_schema_postgres() -> dict:
+    conn = psycopg2.connect(get_database_url())
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema='public' AND table_type='BASE TABLE'
+    """)
+    tables = [row[0] for row in cursor.fetchall()]
+    
+    schema = {}
+    for table in tables:
+        cursor.execute(f"""
+            SELECT column_name, data_type, is_nullable 
+            FROM information_schema.columns 
+            WHERE table_name = '{table}'
+        """)
+        columns = []
+        for col in cursor.fetchall():
+            columns.append({
+                "name": col[0],
+                "type": col[1],
+                "not_null": col[2] == "NO",
+                "primary_key": False # Simplified for Postgres extract for now
+            })
+            
+        cursor.execute(f"SELECT COUNT(*) FROM {table}")
+        row_count = cursor.fetchone()[0]
+        
+        sample_values = {}
+        if row_count < 500:
+            for col in columns:
+                if "char" in col["type"].lower() or "text" in col["type"].lower():
+                    cursor.execute(f"SELECT DISTINCT {col['name']} FROM {table} WHERE {col['name']} IS NOT NULL LIMIT 5")
+                    vals = [r[0] for r in cursor.fetchall()]
+                    if vals:
+                        sample_values[col["name"]] = vals
+                        
+        schema[table] = {
+            "columns": columns,
+            "foreign_keys": [], # Simplified for Postgres extract
+            "row_count": row_count,
+            "sample_values": sample_values
+        }
+    conn.close()
+    return schema
+
+def get_schema_sqlite() -> dict:
     db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # Get all table names
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
     tables = [row[0] for row in cursor.fetchall()]
 
     schema = {}
     for table in tables:
-        # Get columns with types
         cursor.execute(f"PRAGMA table_info({table})")
         columns = []
         for col in cursor.fetchall():
-            col_info = {
+            columns.append({
                 "name": col[1],
                 "type": col[2],
                 "not_null": bool(col[3]),
                 "primary_key": bool(col[5])
-            }
-            columns.append(col_info)
+            })
 
-        # Get foreign keys
         cursor.execute(f"PRAGMA foreign_key_list({table})")
         fkeys = []
         for fk in cursor.fetchall():
@@ -37,7 +85,6 @@ def get_schema() -> dict:
                 "references_column": fk[4]
             })
 
-        # Get sample values for small categorical columns
         cursor.execute(f"SELECT COUNT(*) FROM {table}")
         row_count = cursor.fetchone()[0]
 
@@ -62,6 +109,12 @@ def get_schema() -> dict:
 
     conn.close()
     return schema
+
+def get_schema() -> dict:
+    """Extract full schema from database."""
+    if is_postgres() and psycopg2:
+        return get_schema_postgres()
+    return get_schema_sqlite()
 
 
 def schema_to_prompt_string(schema: dict, relevant_tables: list = None) -> str:
