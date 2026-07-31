@@ -29,7 +29,11 @@ app.add_middleware(
 )
 
 # Load schema once at startup
-SCHEMA = get_schema()
+try:
+    SCHEMA = get_schema()
+except Exception as e:
+    print(f"Warning: Failed to initialize SCHEMA globally: {e}")
+    SCHEMA = {}
 
 # Simple SQLite history store
 HISTORY_DB = Path(__file__).parent / "history.db"
@@ -353,10 +357,14 @@ async def connect_db(req: ConnectRequest):
     try:
         db_config.set_db_path(req.db_path)
         # Regenerate schema for the new database
-        new_schema = schema_extractor.get_schema()
-        with open("schema.json", "w") as f:
-            json.dump(new_schema, f, indent=2)
-        SCHEMA = new_schema
+        try:
+            new_schema = schema_extractor.get_schema()
+            with open("schema.json", "w") as f:
+                json.dump(new_schema, f, indent=2)
+            SCHEMA = new_schema
+        except Exception as e:
+            print(f"Warning: Failed to extract schema on update: {e}")
+            SCHEMA = {}
         return {"status": "success", "db_path": req.db_path, "tables_found": len(SCHEMA)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
