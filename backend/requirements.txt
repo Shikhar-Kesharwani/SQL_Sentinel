@@ -8,3 +8,6 @@ sqlglot
 requests
 psycopg2-binary
 pinecone-client
+langgraph
+langchain-google-genai
+langchain
