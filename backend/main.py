@@ -424,3 +424,9 @@ async def delete_dashboard(dash_id: str):
     dashboards = [d for d in dashboards if d["id"] != dash_id]
     save_dashboards(dashboards)
     return {"status": "success"}
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    port = int(os.getenv("PORT", 8080))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)

@@ -22,5 +22,5 @@ RUN python schema_extractor.py
 # Expose a default port (Render will override this with $PORT)
 EXPOSE 8080
 
-# Run Uvicorn and bind to $PORT (fallback to 8080 if not set)
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Run Uvicorn via python script to avoid shell variable binding issues
+CMD ["python", "main.py"]
