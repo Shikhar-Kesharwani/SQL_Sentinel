@@ -7,7 +7,7 @@ sentence-transformers
 sqlglot
 requests
 psycopg2-binary
-pinecone-client
+pinecone
 langgraph
 langchain-google-genai
 langchain
