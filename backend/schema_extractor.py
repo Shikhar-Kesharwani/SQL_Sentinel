@@ -21,6 +21,18 @@ def get_schema_postgres() -> dict:
     
     schema = {}
     for table in tables:
+        # Get Primary Keys
+        cursor.execute(f"""
+            SELECT kcu.column_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+              ON tc.constraint_name = kcu.constraint_name
+              AND tc.table_schema = kcu.table_schema
+            WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_name = '{table}'
+        """)
+        pks = set(row[0] for row in cursor.fetchall())
+
+        # Get Columns
         cursor.execute(f"""
             SELECT column_name, data_type, is_nullable 
             FROM information_schema.columns 
@@ -32,9 +44,31 @@ def get_schema_postgres() -> dict:
                 "name": col[0],
                 "type": col[1],
                 "not_null": col[2] == "NO",
-                "primary_key": False # Simplified for Postgres extract for now
+                "primary_key": col[0] in pks
             })
             
+        # Get Foreign Keys
+        cursor.execute(f"""
+            SELECT
+                kcu.column_name,
+                ccu.table_name AS foreign_table_name,
+                ccu.column_name AS foreign_column_name
+            FROM 
+                information_schema.table_constraints AS tc
+            JOIN information_schema.key_column_usage AS kcu
+                ON tc.constraint_name = kcu.constraint_name
+            JOIN information_schema.constraint_column_usage AS ccu
+                ON ccu.constraint_name = tc.constraint_name
+            WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name = '{table}'
+        """)
+        fkeys = []
+        for fk in cursor.fetchall():
+            fkeys.append({
+                "column": fk[0],
+                "references_table": fk[1],
+                "references_column": fk[2]
+            })
+
         cursor.execute(f"SELECT COUNT(*) FROM {table}")
         row_count = cursor.fetchone()[0]
         
@@ -49,7 +83,7 @@ def get_schema_postgres() -> dict:
                         
         schema[table] = {
             "columns": columns,
-            "foreign_keys": [], # Simplified for Postgres extract
+            "foreign_keys": fkeys,
             "row_count": row_count,
             "sample_values": sample_values
         }
