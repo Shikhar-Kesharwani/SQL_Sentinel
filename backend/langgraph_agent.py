@@ -47,7 +47,14 @@ class GenerateSqlOutput(BaseModel):
     chart_config: ChartConfig = Field(description="Configuration for visualizing the result.")
 
 # --- 3. INITIALIZE LLM ---
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+_llm = None
+def get_llm():
+    global _llm
+    if _llm is None:
+        # LangChain uses GOOGLE_API_KEY, but we use GEMINI_API_KEY in this project
+        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        _llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0, google_api_key=api_key)
+    return _llm
 
 # --- 4. NODES ---
 
@@ -82,6 +89,7 @@ Available Tables: {', '.join(state['all_table_names'])}
     
 Question: {state['question']}"""
     
+    llm = get_llm()
     structured_llm = llm.with_structured_output(FilterTablesOutput)
     result = structured_llm.invoke(prompt)
     
@@ -121,6 +129,7 @@ QUESTION: {state['question']}"""
     if state.get("error"):
         prompt += f"\n\nPREVIOUS ATTEMPT FAILED:\nSQL: {state['sql']}\nError: {state['error']}\nFix the query."
         
+    llm = get_llm()
     structured_llm = llm.with_structured_output(GenerateSqlOutput)
     result = structured_llm.invoke(prompt)
     

@@ -16,10 +16,15 @@ STORE_PATH = Path(__file__).parent / "context_store.json"
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "sql-sentinel")
 
-try:
-    embedder = SentenceTransformer("all-MiniLM-L6-v2")
-except Exception:
-    embedder = None
+_embedder = None
+def get_embedder():
+    global _embedder
+    if _embedder is None:
+        try:
+            _embedder = SentenceTransformer("all-MiniLM-L6-v2")
+        except Exception:
+            _embedder = None
+    return _embedder
 
 def is_pinecone() -> bool:
     return bool(PINECONE_API_KEY and Pinecone)
@@ -47,6 +52,7 @@ def save_store(data):
         json.dump(data, f, indent=2)
 
 def add_training_data(question: str, sql: str = None, doc_text: str = None, type: str = "sql"):
+    embedder = get_embedder()
     if embedder is None:
         raise RuntimeError("Embedding model failed to load.")
         
@@ -91,6 +97,7 @@ def remove_training_data(record_id: str):
 
 
 def get_relevant_context(query: str, top_k: int = 3):
+    embedder = get_embedder()
     if embedder is None:
         return []
         

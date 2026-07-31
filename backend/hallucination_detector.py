@@ -8,8 +8,14 @@ load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-# Load once at module level — small model, fast
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
+# Lazy load to prevent boot crashes
+_embedder = None
+
+def get_embedder():
+    global _embedder
+    if _embedder is None:
+        _embedder = SentenceTransformer("all-MiniLM-L6-v2")
+    return _embedder
 
 
 def back_translate_sql(sql: str) -> str:
@@ -28,6 +34,7 @@ Answer in one sentence:"""
 
 def semantic_similarity(text1: str, text2: str) -> float:
     """Cosine similarity between two texts using sentence embeddings."""
+    embedder = get_embedder()
     emb1 = embedder.encode(text1, convert_to_tensor=True)
     emb2 = embedder.encode(text2, convert_to_tensor=True)
     score = util.cos_sim(emb1, emb2).item()
