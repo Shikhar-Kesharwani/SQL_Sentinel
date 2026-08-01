@@ -38,39 +38,41 @@ class ChartConfig(BaseModel):
     y_key: str = Field(description="The exact column name for the y-axis or numerical value.")
 
 class GenerateSqlOutput(BaseModel):
-    sql: str = Field(description="The SQLite SQL query to execute.")
-    explanation: str = Field(description="Plain English explanation of what this query does.")
-    confidence: float = Field(description="Confidence score between 0.0 and 1.0.")
-    tables_used: List[str] = Field(description="List of tables used in the query.")
-    ambiguous: bool = Field(description="True if the question is ambiguous.")
-    clarification_needed: str = Field(description="If ambiguous, what clarification is needed.")
-    chart_config: ChartConfig = Field(description="Configuration for visualizing the result.")
+    sql: str = Field(description="The executable SQL query.")
+    explanation: str = Field(description="One-sentence plain English explanation of what the query does.")
+    confidence: float = Field(description="Confidence score from 0.0 to 1.0.")
+    tables_used: List[str] = Field(description="Tables used in the SQL.")
+    ambiguous: bool = Field(description="True if question is too vague.")
+    clarification_needed: str = Field(description="Clarifying question if ambiguous.")
+    chart_config: ChartConfig = Field(description="Chart rendering configuration.")
 
-# --- 3. INITIALIZE LLM ---
 _llm = None
 def get_llm():
     global _llm
     if _llm is None:
-        # LangChain uses GOOGLE_API_KEY, but we use GEMINI_API_KEY in this project
         api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         _llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0, google_api_key=api_key)
     return _llm
+
+def get_attr_or_key(obj: Any, key: str, default: Any = None) -> Any:
+    """Safely extract value whether obj is a dict or Pydantic model."""
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
 
 # --- 4. NODES ---
 
 def node_setup(state: AgentState) -> AgentState:
     """Gets RAG context and all table names."""
     question = state["question"]
-    # Get dynamic examples
     relevant_contexts = vector_store.get_relevant_context(question, top_k=3)
     context_str = ""
     for ctx in relevant_contexts:
-        if ctx["type"] == "sql":
-            context_str += f"Q: {ctx['question']}\nSQL: {ctx['sql']}\n\n"
-        elif ctx["type"] == "doc":
-            context_str += f"Documentation: {ctx['doc_text']}\n\n"
+        if ctx.get("type") == "sql":
+            context_str += f"Q: {ctx.get('question')}\nSQL: {ctx.get('sql')}\n\n"
+        elif ctx.get("type") == "doc":
+            context_str += f"Documentation: {ctx.get('doc_text')}\n\n"
             
-    # Get all tables
     schema = get_schema()
     all_table_names = list(schema.keys())
     
@@ -83,38 +85,48 @@ def node_setup(state: AgentState) -> AgentState:
 
 def node_filter_tables(state: AgentState) -> AgentState:
     """Uses LLM to pick exactly which tables are needed."""
+    all_tables = state.get("all_table_names", [])
+    if not all_tables:
+        return {**state, "relevant_tables": []}
+
     prompt = f"""You are a database router. Given the user's question, pick the tables that contain the relevant information.
     
-Available Tables: {', '.join(state['all_table_names'])}
+Available Tables: {', '.join(all_tables)}
     
 Question: {state['question']}"""
     
     llm = get_llm()
-    structured_llm = llm.with_structured_output(FilterTablesOutput)
-    result = structured_llm.invoke(prompt)
-    
-    # Ensure they actually exist
-    valid_tables = [t for t in result.relevant_tables if t in state["all_table_names"]]
+    try:
+        structured_llm = llm.with_structured_output(FilterTablesOutput)
+        result = structured_llm.invoke(prompt)
+        res_tables = get_attr_or_key(result, "relevant_tables", [])
+        if not isinstance(res_tables, list):
+            res_tables = []
+        valid_tables = [t for t in res_tables if t in all_tables]
+    except Exception:
+        valid_tables = all_tables
+
     if not valid_tables:
-        valid_tables = state["all_table_names"] # fallback to all
+        valid_tables = all_tables
         
     return {**state, "relevant_tables": valid_tables}
 
 def node_get_schema(state: AgentState) -> AgentState:
     """Extracts DDL only for the chosen tables."""
     schema = get_schema()
-    schema_str = schema_to_prompt_string(schema, state["relevant_tables"])
+    relevant = state.get("relevant_tables") or list(schema.keys())
+    schema_str = schema_to_prompt_string(schema, relevant)
     return {**state, "schema_ddl": schema_str}
 
 def node_generate_sql(state: AgentState) -> AgentState:
     """Generates the SQL query and chart config."""
-    prompt = f"""You are a SQL expert. Generate a SQLite SQL query.
+    prompt = f"""You are a SQL expert. Generate a SQL query.
 
 DATABASE SCHEMA:
-{state['schema_ddl']}
+{state.get('schema_ddl', '')}
 
 EXAMPLE QUERIES:
-{state['context']}
+{state.get('context', '')}
 
 RULES:
 1. Only use SELECT statements.
@@ -127,38 +139,42 @@ QUESTION: {state['question']}"""
         prompt += f"\n\nFor conversational context, here is the PREVIOUS SQL query the user ran:\n```sql\n{state['previous_sql']}\n```"
 
     if state.get("error"):
-        prompt += f"\n\nPREVIOUS ATTEMPT FAILED:\nSQL: {state['sql']}\nError: {state['error']}\nFix the query."
+        prompt += f"\n\nPREVIOUS ATTEMPT FAILED:\nSQL: {state.get('sql', '')}\nError: {state.get('error', '')}\nFix the query."
         
     llm = get_llm()
     structured_llm = llm.with_structured_output(GenerateSqlOutput)
     result = structured_llm.invoke(prompt)
     
+    chart_cfg = get_attr_or_key(result, "chart_config", {"type": "none", "x_key": "", "y_key": ""})
+    if hasattr(chart_cfg, "model_dump"):
+        chart_cfg = chart_cfg.model_dump()
+    elif hasattr(chart_cfg, "dict"):
+        chart_cfg = chart_cfg.dict()
+
     return {
         **state,
-        "sql": result.sql,
-        "explanation": result.explanation,
-        "confidence": result.confidence,
-        "tables_used": result.tables_used,
-        "ambiguous": result.ambiguous,
-        "clarification_needed": result.clarification_needed,
-        "chart_config": result.chart_config.model_dump()
+        "sql": get_attr_or_key(result, "sql", ""),
+        "explanation": get_attr_or_key(result, "explanation", ""),
+        "confidence": get_attr_or_key(result, "confidence", 0.9),
+        "tables_used": get_attr_or_key(result, "tables_used", []),
+        "ambiguous": get_attr_or_key(result, "ambiguous", False),
+        "clarification_needed": get_attr_or_key(result, "clarification_needed", ""),
+        "chart_config": chart_cfg if isinstance(chart_cfg, dict) else {"type": "none", "x_key": "", "y_key": ""}
     }
 
 def node_execute(state: AgentState) -> AgentState:
     """Executes the SQL safely and runs guardrails first."""
-    sql = state["sql"]
+    sql = state.get("sql", "")
     
-    # Run guardrails
     validation = validate_sql(sql, state["question"])
-    if not validation["passed"]:
+    if not validation.get("passed"):
         return {
             **state,
-            "error": validation["reason"],
+            "error": validation.get("reason", "Guardrail check failed"),
             "iterations": state.get("iterations", 0) + 1
         }
         
     try:
-        # Use our existing safe executor
         res = execute_sql_safely(sql)
         if not res.get("success"):
             return {
@@ -211,7 +227,6 @@ workflow.add_conditional_edges(
     }
 )
 
-# Compile
 graph = workflow.compile()
 
 def run_langgraph_agent(question: str, previous_sql: str = None) -> dict:
@@ -219,7 +234,6 @@ def run_langgraph_agent(question: str, previous_sql: str = None) -> dict:
     initial_state = {"question": question, "previous_sql": previous_sql, "iterations": 0}
     final_state = graph.invoke(initial_state)
     
-    # Format identically to existing backend
     return {
         "sql": final_state.get("sql", ""),
         "explanation": final_state.get("explanation", ""),
