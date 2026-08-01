@@ -3,7 +3,6 @@ uvicorn
 sqlalchemy
 python-dotenv
 google-generativeai
-sentence-transformers
 sqlglot
 requests
 psycopg2-binary

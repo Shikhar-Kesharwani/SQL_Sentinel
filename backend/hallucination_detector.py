@@ -1,22 +1,12 @@
 import os
 import json
 import google.generativeai as genai
-from sentence_transformers import SentenceTransformer, util
 from dotenv import load_dotenv
+import vector_store
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash")
-
-# Lazy load to prevent boot crashes
-_embedder = None
-
-def get_embedder():
-    global _embedder
-    if _embedder is None:
-        _embedder = SentenceTransformer("all-MiniLM-L6-v2")
-    return _embedder
-
 
 def back_translate_sql(sql: str) -> str:
     """Ask LLM: what question does this SQL answer?"""
@@ -34,11 +24,10 @@ Answer in one sentence:"""
 
 def semantic_similarity(text1: str, text2: str) -> float:
     """Cosine similarity between two texts using sentence embeddings."""
-    embedder = get_embedder()
-    emb1 = embedder.encode(text1, convert_to_tensor=True)
-    emb2 = embedder.encode(text2, convert_to_tensor=True)
-    score = util.cos_sim(emb1, emb2).item()
-    return round(score, 4)
+    emb1 = vector_store.get_embedding(text1)
+    emb2 = vector_store.get_embedding(text2)
+    score = vector_store.cosine_similarity(emb1, emb2)
+    return round(float(score), 4)
 
 
 def sanity_check_results(columns: list, rows: list, question: str) -> dict:
