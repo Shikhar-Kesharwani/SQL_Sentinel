@@ -7,7 +7,7 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 
 SyntaxHighlighter.registerLanguage("sql", sql);
 
-const API = "http://127.0.0.1:8080";
+const API = process.env.REACT_APP_API_URL || "http://127.0.0.1:8080";
 const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 function DashboardManager({ onClose }) {
