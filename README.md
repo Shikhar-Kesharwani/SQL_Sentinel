@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
   <img src="https://capsule-render.vercel.app/api?type=waving&color=009688&height=200&section=header&text=SQL%20Sentinel&fontSize=50&animation=fadeIn&fontAlignY=38&desc=Enterprise-Grade,%20Guardrail-Protected,%20Multi-Agent%20Text-to-SQL%20Engine&descAlignY=58&descSize=15" alt="Header" />
   
   <br />
@@ -149,7 +149,7 @@ graph TD
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/AyushGU12/SQL_Sentinel.git
+git clone https://github.com/Shikhar-Kesharwani/TEXT_TO_SQL.git
 cd SQL_Sentinel
 ```
 

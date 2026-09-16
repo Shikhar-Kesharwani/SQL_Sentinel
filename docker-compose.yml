@@ -7,12 +7,21 @@ services:
     restart: always
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+    env_file:
+      - .env
     ports:
-      - "8080:8080"
+      - "8000:8000"
     volumes:
       - ./backend/vector_db:/app/vector_db # Persist RAG knowledge base
       - ./backend/chinook.db:/app/chinook.db # Persist SQLite DB
       - ./backend/history.db:/app/history.db # Persist query history
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sql-net
 
   frontend:
     build: ./frontend
@@ -22,3 +31,9 @@ services:
       - "80:80"
     depends_on:
       - backend
+    networks:
+      - sql-net
+
+networks:
+  sql-net:
+    driver: bridge
