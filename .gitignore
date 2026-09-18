@@ -19,7 +19,21 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+# Environment variables
 .env
+.env.*
+!.env.example
+!*.env.example
+
+# Logs
+*.log
+**/*.log
+
+# Runtime local data stores
+backend/context_store.json
+context_store.json
+backend/dashboards.json
+dashboards.json
 .venv
 venv/
 ENV/
